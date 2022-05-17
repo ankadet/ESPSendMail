@@ -6,13 +6,13 @@
  */
 #include "ESPSendMail.h"
 
-ESPSendMail::ESPSendMail(String _mailServer, String _mailUser, String _mailPwd, WiFiClientSecure *_client, int delaysec){
+ESPSendMail::ESPSendMail(String _mailServer, String _mailUser, String _mailPwd, WiFiClientSecure *_clientsecure, int delaysec){
     mailServer = _mailServer;
 	mailUser = _mailUser;
 	mailPwd = _mailPwd;
-	client = _client;
+	mailclient = _clientsecure;
 
-    client->setInsecure();
+    mailclient->setInsecure();
     From = "";
     To = "";
     Subject = "";
@@ -37,74 +37,80 @@ void ESPSendMail::AddMessageLine(String _line){
 }
 
 
-byte ESPSendMail::Send()
+int ESPSendMail::Send()
 {
-  Serial.println("Attempting to connect to mail server");
-  if (client->connect(mailServer, 465) == 1) {
+  Serial.print("Attempting to connect to mail server:");
+  Serial.println(mailServer);
+  
+  if (mailclient->connected()){
+	   Serial.print("Client is just connected!!!!");
+  }
+  
+  if (mailclient->connect(mailServer, 465) == 1) {
     Serial.println(F("Connected"));
   } else {
-    Serial.print(F("Connection failed:"));
-    return 0;
+    Serial.print(F("Connection failed !!!"));
+    return -1;
   }
   if (!Response())
     return 0;
 
   Serial.println(F("Sending Extended Hello"));
-  client->println("EHLO smtp2go.com");
+  mailclient->println("EHLO smtp2go.com");
   if (!Response())
     return 0;
  
   Serial.println(F("Sending AUTH LOGIN"));
-  client->println("AUTH LOGIN");
+  mailclient->println("AUTH LOGIN");
   if (!Response())
     return 0;
 
   Serial.println(F("Sending User"));
-  client->println(base64::encode(mailUser));
+  mailclient->println(base64::encode(mailUser));
   if (!Response())
     return 0;
 
   Serial.println(F("Sending Password"));
-  client->println(base64::encode(mailPwd));
+  mailclient->println(base64::encode(mailPwd));
   if (!Response())
     return 0;
 
   Serial.println("Sending From <"+From+">");
-  client->println("MAIL FROM: <"+From+">");
+  mailclient->println("MAIL FROM: <"+From+">");
   if (!Response())
     return 0;
 
   Serial.println("Sending To <"+To+">");
-  client->println("RCPT TO: <"+To+">");
+  mailclient->println("RCPT TO: <"+To+">");
   if (!Response())
     return 0;
 
   Serial.println(F("Sending DATA"));
-  client->println(F("DATA"));
+  mailclient->println(F("DATA"));
   if (!Response())
     return 0;
 
   Serial.println(F("Sending email"));
   // recipient address (include option display name if you want)
-  client->println("To: "+To);
+  mailclient->println("To: "+To);
 
   // change to your address
   if (DisplayFrom != "")
-    client->println("From: "+DisplayFrom);
+    mailclient->println("From: "+DisplayFrom);
 
-  client->println("Subject:"+Subject+"\r\n");
-  client->println(Message);
+  mailclient->println("Subject:"+Subject+"\r\n");
+  mailclient->println(Message);
   
-  client->println(F("."));
+  mailclient->println(F("."));
   if (!Response())
     return 0;
 
   Serial.println(F("Sending QUIT"));
-  client->println(F("QUIT"));
+  mailclient->println(F("QUIT"));
   if (!Response())
     return 0;
 
-  client->stop();
+  mailclient->stop();
   Serial.println(F("Disconnected"));
   return 1;
 }
@@ -114,20 +120,20 @@ byte ESPSendMail::Send()
 
 byte ESPSendMail::Response(){
   int loopCount = 0;
-  while (!client->available()) {
+  while (!mailclient->available()) {
     delay(1);
     loopCount++;
     if (loopCount > delaytime) {
-      client->stop();
+      mailclient->stop();
       Serial.println(F("\r\nTimeout"));
       return 0;
     }
   }
 
-  byte respCode = client->peek();
-  while (client->available())
+  byte respCode = mailclient->peek();
+  while (mailclient->available())
   {
-    Serial.write(client->read());
+    Serial.write(mailclient->read());
   }
 
   if (respCode >= '4')

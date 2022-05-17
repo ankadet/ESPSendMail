@@ -12,7 +12,7 @@
 class ESPSendMail{
 	public:
 		ESPSendMail(String _mailServer, String _mailUser, String _mailPwd, WiFiClientSecure *_client, int delaysec=10);
-		byte Send();
+		int Send();
 		void ClearMessage();
 		void AddMessageLine(String _line);
 		String From;
@@ -25,7 +25,7 @@ class ESPSendMail{
 		String Message;
 		String mailUser;
 		String mailPwd;
-		WiFiClientSecure *client;
+		WiFiClientSecure *mailclient;
 		unsigned long delaytime;
 		byte Response();
 
